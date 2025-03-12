@@ -1,0 +1,187 @@
+<!-- templates/chat_page.html -->
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>聊天界面</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            background-color: #f4f4f9;
+            margin: 0;
+            padding: 0;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            min-height: 100vh;
+        }
+
+        #chat-container {
+            background-color: #fff;
+            border-radius: 8px;
+            box-shadow: 0 0 10px rgba(0, 0, 0, 0.1);
+            width: 400px;
+            height: 600px;
+            display: flex;
+            flex-direction: column;
+        }
+
+        #chat-header {
+            background-color: #007bff;
+            color: #fff;
+            text-align: center;
+            padding: 15px;
+            border-top-left-radius: 8px;
+            border-top-right-radius: 8px;
+        }
+
+        #conversation {
+            flex: 1;
+            padding: 15px;
+            overflow-y: auto;
+        }
+
+        .message {
+            padding: 10px;
+            border-radius: 5px;
+            margin-bottom: 10px;
+            max-width: 80%;
+        }
+
+        .user-message {
+            background-color: #e0f7fa;
+            align-self: flex-end;
+        }
+
+        .bot-message {
+            background-color: #f1f8e9;
+            align-self: flex-start;
+        }
+
+        #input-container {
+            display: flex;
+            padding: 15px;
+            border-top: 1px solid #e0e0e0;
+        }
+
+        #userMessage {
+            flex: 1;
+            padding: 10px;
+            border: 1px solid #ccc;
+            border-radius: 5px;
+            margin-right: 10px;
+        }
+
+        button {
+            padding: 10px 15px;
+            background-color: #007bff;
+            color: #fff;
+            border: none;
+            border-radius: 5px;
+            cursor: pointer;
+        }
+
+        button:hover {
+            background-color: #0056b3;
+        }
+    </style>
+</head>
+
+<body>
+    <div id="chat-container">
+        <div id="chat-header">
+            <h1>聊天机器人</h1>
+        </div>
+        <div id="conversation"></div>
+        <div id="input-container">
+            <input type="text" id="userMessage" placeholder="请输入你的问题">
+            <button onclick="sendMessage()">发送</button>
+            <button onclick="startNewConversation()">开启新对话</button>
+        </div>
+    </div>
+    <script>
+        let token = null;
+        // 获取登录时的认证信息
+        function getCredentials() {
+            const tokenHeader = document.cookie.split('; ').find(row => row.startsWith('token='));
+            if (tokenHeader) {
+                token = tokenHeader.split('=')[1];
+                console.log('获取到的令牌:', token); // 添加调试信息
+            } else {
+                console.log('未找到令牌');
+            }
+        }
+        getCredentials();
+
+        function sendMessage() {
+            const userMessage = document.getElementById('userMessage').value;
+            if (userMessage.trim() === '') {
+                return;
+            }
+
+            const conversationDiv = document.getElementById('conversation');
+            const userMessageElement = document.createElement('div');
+            userMessageElement.classList.add('message', 'user-message');
+            userMessageElement.textContent = `你: ${userMessage}`;
+            conversationDiv.appendChild(userMessageElement);
+
+            fetch('/chat', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                    'Authorization': `Bearer ${token}`
+                },
+                body: JSON.stringify({
+                    message: userMessage
+                }),
+                credentials: 'include' // 添加该选项以携带 Cookie
+            })
+           .then(response => response.json())
+           .then(data => {
+                if (data.error) {
+                    const errorElement = document.createElement('div');
+                    errorElement.classList.add('message', 'bot-message');
+                    errorElement.textContent = `错误: ${data.error}`;
+                    conversationDiv.appendChild(errorElement);
+                } else {
+                    const answer = data.answer;
+                    const answerElement = document.createElement('div');
+                    answerElement.classList.add('message', 'bot-message');
+                    answerElement.textContent = `机器人: ${answer}`;
+                    conversationDiv.appendChild(answerElement);
+                }
+                document.getElementById('userMessage').value = '';
+            })
+           .catch(error => {
+                const errorElement = document.createElement('div');
+                errorElement.classList.add('message', 'bot-message');
+                errorElement.textContent = `请求出错: ${error.message}`;
+                conversationDiv.appendChild(errorElement);
+            });
+        }
+
+        function startNewConversation() {
+            fetch('/new_conversation', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                    'Authorization': `Bearer ${token}`
+                }
+            })
+           .then(response => response.json())
+           .then(data => {
+                if (data.status === "New conversation started") {
+                    const conversationDiv = document.getElementById('conversation');
+                    conversationDiv.innerHTML = '';
+                }
+            })
+           .catch(error => {
+                console.error('开启新对话出错:', error);
+            });
+        }
+    </script>
+</body>
+
+</html>
